@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style type="text/css">
+    body{
+      text-align: center;
+    }
+    text {
+      font: 10px sans-serif;
+      pointer-events: none;
+    }
+    circle {
+        stroke: #565352;
+        stroke-width: 0.5px;
+    }
+    svg{
+      display: block;
+      margin: 0 auto;
+    }
+    .buttons{
+      display: flex;
+      flex-direction: row;
+      margin: 0 auto;
+      flex-wrap: nowrap;
+      justify-content:center;
+
+    }
+    button{
+      border: 1px solid #ccc;
+      background-color: #fff;
+      font-family: sans-serif;
+      font-size: 14px;
+      padding: 8px;
+      margin:0;
+      cursor: pointer;
+    }
+
+</style>
+<body>
+    <div class="buttons">
+      <button class="trigger">See Data Categories</button>
+    </div>
+
+<script src="js/d3.v5.min.js"></script>
+<script>
+var test;
+
+d3.csv("ucbudget.csv").then(function(data){
+
+  //set header values for your own spreadsheet of data
+  var categories = "Category",
+      values     = "FY18 Est. Expenses",
+      names      = "Campus Divisions";
+
+  //set the X and Y positions of where you want the categories to cluster
+  var category_locations = {
+    "Letters and Sciences": {x: 200, y: 200},
+    "Colleges":             {x: 800, y:200},
+    "Schools":              {x: 500, y:400}
+  }
+
+  //minimum and maximum size of each bubble
+  var bubbleRange = [50, 85];
+
+  //range of colors for each category
+  var colorRange = ["#D84B2A", "#EE9586", "#E4B7B2", "#BECCAE", "#9CAF84", "#7AA25C"];
+
+
+  //this convert numerical data from strings into numbers
+  data.forEach(function(d){
+    d[values] = +d[values];
+  });
+
+  //set margins and size of your svg
+  var margin = {top:10, right:10, bottom:10, left:10},
+      width  = 1000 - margin.left - margin.right, 
+      height = 600  - margin.top  - margin.bottom;
+
+
+  //controls the speed of motion when separating. It's very sensitive.
+  var forceStrength = 0.02;
+
+  //how much bubbles overlap. Very sensitive, adjust hundreths number.
+  var bubbleSeparation = 2;
+
+  //setup main svg box
+  var svg = d3.select("body")
+    .append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom);
+
+
+  //chart grouping that will house the actual chart
+  var chart = svg.append("g")
+    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+
+  //get the unique categories in your data
+  var categories_array = d3.map(data, function(d){ return d[categories]; }).keys();
+
+    
+  //setup colors for the categories
+  var color = d3.scaleOrdinal()
+    .domain(d3.map(data, function(d){ return d[categories]; }).keys())
+    .range(colorRange);
+
+
+  //setup bubble size scale
+  var radiusScale = d3.scalePow()
+    .exponent(0.5)
+    .range(bubbleRange)
+    .domain([d3.min(data, function(d){ return d[values]; }), d3.max(data, function(d){ return d[values]; })]);
+
+
+
+  //create nodes from data
+  var nodes = data.map(function(d, i){
+
+    //These three lines of code find out which value is the most in each category
+    let cat = data.filter(function(k){ return k[categories] == d[categories]; });
+    let max = d3.max(cat, function(k){ return k[values]; });
+    let pos = data.map(function(k){ return k[values]; }).indexOf(max);
+
+    //return standardized data
+    return {
+      name: d[names],
+      group: d[categories],
+      value: d[values],
+      radius: radiusScale(d[values]),
+      source: i,
+      target: pos,
+      x: category_locations[d[categories]].x + Math.ceil(Math.random() < 0.5 ? (Math.random() * 30) : -(Math.random() * 30)),
+      y: category_locations[d[categories]].y + Math.ceil(Math.random() < 0.5 ? (Math.random() * 30) : -(Math.random() * 30)),
+    }
+  });
+
+  
+  //create a grouped hierarchy based on categories.
+  var node_hierarchy = categories_array.map(function(d){
+    let cat_data = nodes.filter(function(k){ return k.group == d; });
+    return {name: d, children: cat_data};
+  });
+
+
+  //create the simulation for forces
+  var simulation = d3.forceSimulation()
+    .velocityDecay(0.2)
+    .force('x', d3.forceX().strength(forceStrength).x(width / 2))
+    .force('y', d3.forceY().strength(forceStrength).y(height / 2))
+    .force('charge', d3.forceManyBody().strength(function(d){ 
+      return -(Math.pow(d.r, bubbleSeparation) * forceStrength); 
+    }))
+    .force('collision', d3.forceCollide().radius(function(d) { return d.r; }))
+    .on('tick', ticked);
+
+  //stop until we draw chart.
+  simulation.stop();
+
+  //we setup a pack layout to group the bubbles better for initial view
+  var packLayout = d3.pack()
+    .size([width, height]);
+
+  //setup a d3.hierarchy object
+  var rootNode = d3.hierarchy({children: node_hierarchy})
+    .sum(function(d){return d.value; })
+    .sort(function(a,b){ return b.group - a.group; });
+
+  //apply packlayout
+  packLayout(rootNode);
+
+  //make some bubbles!
+  var bubbles = chart.selectAll("circle")
+    .data(rootNode.leaves());
+
+  //Since bubbles are immutable in d3 v5, setup bubbles after data-join and merge afterwards
+  var bubblesE = bubbles.enter().append("circle")
+    .classed("bubble", true)
+    .attr("cx", function(d){ return d.x; })
+    .attr("cy", function(d){ return d.y; })
+    .attr("r", 0)
+    .attr("fill", function(d){ return color(d.data.group); })
+    .attr("stroke", function(d){ return d3.rgb(color(d.data.group)).darker(); })
+    .attr("stroke-width", 1);
+
+  //merge with original variable
+  bubbles = bubbles.merge(bubblesE);
+
+  //fade in 2 seconds
+  bubbles.transition()
+    .duration(2000)
+    .attr("r", function(d){ return d.r; })
+    .on("end", function(){
+      text.transition().duration(300).style("opacity", 1);//make text appear at end
+    })
+
+  //setup text
+  var text = chart.selectAll("text")
+    .data(rootNode.leaves());
+   
+  //text over bubbles
+  var textE = text.enter()
+    .append("text")
+    .text(function(d){ return d.data.name;})
+    .attr("text-anchor", "middle")
+    .style("font-size", "9px")
+    .attr("x", function(d){ return d.x; })
+    .attr("y", function(d){ return d.y; })
+    .style("opacity", 0)
+    .each(wrap);
+
+  text = text.merge(textE);
+
+  //start the force simulation.
+  simulation.nodes(rootNode.leaves());
+  simulation.alpha(1).restart();
+
+  //every iteration of the force (roughly 300x per round)
+  function ticked() {
+
+      bubbles
+        .attr("cx", function(d){ return d.x; })
+        .attr("cy", function(d){ return d.y; });
+
+      textE.selectAll("tspan")
+        .attr("x", function(d){ return d.x; })
+        .attr("y", function(d){ return d.y; });
+
+  }
+
+  //when they click on the button
+  d3.select(".trigger")
+    .on("click", function(){
+
+      let active = d3.select(this);
+
+      if(active.attr("class").match(/active/g)){
+
+        simulation
+          .force('x', d3.forceX().strength(forceStrength).x(width/2))
+          .force('y', d3.forceY().strength(forceStrength).y(height/2))
+
+        simulation.alpha(1).restart();
+
+        active.classed("active", false);
+
+      } else {
+
+        active.classed("active", true);
+
+        simulation
+          .force('x', d3.forceX().strength(forceStrength).x(function(d,i){ return category_locations[d.data.group].x; }))
+          .force('y', d3.forceY().strength(forceStrength).y(function(d,i){ return category_locations[d.data.group].y; }))
+
+        simulation.alpha(1).restart();
+
+      }
+
+    });
+
+});
+
+//text wrapping function
+function wrap(d) {
+
+    var t = d3.select(this),
+      twidth = d.r * 2,
+      x = d.x,
+      y = d.y,
+      words = t.text().split(/\s+/).reverse(),
+      word,
+      line = [],
+      lineNumber = 0,
+      lineHeight = 1.2,
+      tspan = t.text(null).append("tspan").attr("x", x).attr("y", y);
+
+    while (word = words.pop()) {
+      line.push(word);
+      tspan.text(line.join(" "));
+      if (tspan.node().getComputedTextLength() > twidth) {
+        line.pop();
+        tspan.text(line.join(" "));
+        line = [word];
+        tspan = t.append("tspan").attr("x", x).attr("y", y).attr("dy", ++lineNumber * lineHeight + "em").text(word);
+      }
+    }
+}
+    
+</script>
