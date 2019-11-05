@@ -2,7 +2,7 @@
 
 This is a simple template for making a force bubble chart in D3. 
 
-![Screenshot](https://raw.githubusercontent.com/jrue/d3-force-chart/master/screenshot.png)
+<img src="https://raw.githubusercontent.com/jrue/d3-force-chart/master/screenshot.png" style="max-width:100%;height:auto;">
 
 ## Install instructions
 
