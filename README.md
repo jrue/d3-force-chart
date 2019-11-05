@@ -2,6 +2,8 @@
 
 This is a simple template for making a force bubble chart in D3. 
 
+![Screenshot](https://raw.githubusercontent.com/jrue/d3-force-chart/master/screenshot.png)
+
 ## Install instructions
 
 To install, fork this repo, then clone a copy to your computer. (Note: You will need [Node.js](https://nodejs.org/en/) installed for this command to work.) Open a Terminal window in the directory from where you cloned your repository, and run the following command:
