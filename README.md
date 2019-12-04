@@ -4,6 +4,8 @@ This is a simple template for making a force bubble chart in D3.
 
 <img src="https://raw.githubusercontent.com/jrue/d3-force-chart/master/screenshot.png" width="50%" height="auto" style="max-width:50%;height:auto;">
 
+(note: The data require a categories column to trigger separation of categories. A separate no-categories.html version exists that doesn't use categories.)
+
 ## Install instructions
 
 To install, fork this repo, then clone a copy to your computer. (Note: You will need [Node.js](https://nodejs.org/en/) installed for this command to work.) Open a Terminal window in the directory from where you cloned your repository, and run the following command:
